@@ -14,8 +14,11 @@ class MovieListPage extends StatefulWidget {
 class _MovieListPageState extends State<MovieListPage> {
   var imageUrl = 'https://image.tmdb.org/t/p/w500/';
 
-  var movies;
+  // API key from the service
+  // Note that this should not be embedded directly in your code, as much as possible hide this
+  final apiKey = "7feb11c2a5e8158a9168d88ae75dc0b4";
 
+  var movies;
   bool? isLoading;
 
   Future getMovieList() async {
@@ -24,9 +27,8 @@ class _MovieListPageState extends State<MovieListPage> {
       isLoading = true;
     });
     var data = await getMoviesJSON();
-    print('movie result: ');
-    // you can check thhe content
-    print(data);
+    // you can check the raw content
+    // print(data);
     // update the movie list in the state
     setState(() {
       isLoading = false;
@@ -36,7 +38,7 @@ class _MovieListPageState extends State<MovieListPage> {
 
   Future<Map> getMoviesJSON() async {
     // Add an artificial delay to show the loading indicator
-    await Future.delayed(Duration(seconds: 3), () {});
+    // await Future.delayed(Duration(seconds: 3), () {});
 
     // The API I used is from the movie db, see here: https://developer.themoviedb.org/docs/getting-started
     // it gives you access to the list of current movies
@@ -46,6 +48,7 @@ class _MovieListPageState extends State<MovieListPage> {
     var url = Uri.parse(
         'https://api.themoviedb.org/3/discover/movie?api_key=$apiKey');
     var response = await http.get(url);
+    // Most of the time we need to decode JSON results
     return jsonDecode(response.body);
   }
 
@@ -54,6 +57,7 @@ class _MovieListPageState extends State<MovieListPage> {
     // TODO: implement initState
     super.initState();
     // fetch the movies from the API at the start
+    // Don't use if you are using a FutureBuilder
     getMovieList();
   }
 
@@ -78,29 +82,73 @@ class _MovieListPageState extends State<MovieListPage> {
                     fontSize: 18,
                   ),
                 )),
-            Expanded(
-              child: isLoading!
-                  ? Center(child: CircularProgressIndicator())
-                  : ListView.builder(
-                      itemCount: movies == null ? 0 : movies.length,
-                      itemBuilder: (context, i) {
-                        return new MaterialButton(
-                          child: new Card(
-                            child: ListTile(
-                              leading: Image(
-                                  image: new NetworkImage(
-                                      imageUrl + movies[i]["poster_path"])),
-                              title: new Text(movies[i]['title']),
-                              subtitle: Text(movies[i]["release_date"]),
+            FutureBuilder(
+              future: getMoviesJSON(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasData) {
+                  // print(snapshot.data);
+                  // retrieve the list from the response
+                  var data = snapshot.data as Map;
+                  var results = data['results'];
+                  print(results);
+
+                  return Expanded(
+                    child: ListView.builder(
+                        itemCount: results == null ? 0 : results.length,
+                        itemBuilder: (context, i) {
+                          return new MaterialButton(
+                            child: new Card(
+                              child: ListTile(
+                                leading: Image(
+                                    image: new NetworkImage(
+                                        imageUrl + results[i]["poster_path"])),
+                                title: new Text(results[i]['title']),
+                                subtitle: Text(results[i]["release_date"]),
+                              ),
                             ),
-                          ),
-                          onPressed: () {
-                            Navigator.pushNamed(context, "/movieDetails",
-                                arguments: movies[i]);
-                          },
-                        );
-                      }),
-            )
+                            onPressed: () {
+                              Navigator.pushNamed(context, "/movieDetails",
+                                  arguments: results[i]);
+                            },
+                          );
+                        }),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Text(
+                      "An error has occured: ${snapshot.error.toString()}");
+                }
+
+                return Container();
+              },
+            ),
+
+            // child: isLoading!
+            //     ? Center(child: CircularProgressIndicator())
+            //     : ListView.builder(
+            //         itemCount: movies == null ? 0 : movies.length,
+            //         itemBuilder: (context, i) {
+            //           return new MaterialButton(
+            //             child: new Card(
+            //               child: ListTile(
+            //                 leading: Image(
+            //                     image: new NetworkImage(
+            //                         imageUrl + movies[i]["poster_path"])),
+            //                 title: new Text(movies[i]['title']),
+            //                 subtitle: Text(movies[i]["release_date"]),
+            //               ),
+            //             ),
+            //             onPressed: () {
+            //               Navigator.pushNamed(context, "/movieDetails",
+            //                   arguments: movies[i]);
+            //             },
+            //           );
+            //         }),
           ],
         ),
       ),
